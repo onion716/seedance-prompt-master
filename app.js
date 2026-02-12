@@ -14,7 +14,7 @@ const VIEW_META = {
   },
   settings: {
     title: "AI 设置",
-    subtitle: "默认 gmn 配置，首次使用请填写 API Key",
+    subtitle: "仅需配置 API Key 与 Base URL（需支持 CORS）",
   },
 };
 
@@ -371,6 +371,7 @@ async function handleGenerate(event) {
 
   setGeneratingState(true);
   setGenerationStatus("正在调用 AI 生成，请稍候...", "info");
+  const endpoint = resolveResponsesEndpoint(state.settings.baseUrl);
 
   try {
     const output = await requestAI(payload);
@@ -380,11 +381,12 @@ async function handleGenerate(event) {
     setGenerationStatus("生成成功，已保存到本地记录。", "success");
   } catch (error) {
     console.error(error);
-    const fallbackOutput = buildFallbackPrompt(payload, error instanceof Error ? error.message : String(error));
+    const diagnostics = explainRequestError(error, endpoint);
+    const fallbackOutput = buildFallbackPrompt(payload, diagnostics.rawMessage);
     setOutput(fallbackOutput);
     saveRecord(payload, fallbackOutput, "Fallback");
     renderRecords();
-    setGenerationStatus("AI 请求失败，已生成本地草稿。请检查 API 设置后重试。", "warning");
+    setGenerationStatus(diagnostics.userMessage, "warning");
   } finally {
     setGeneratingState(false);
   }
@@ -492,6 +494,31 @@ function resolveResponsesEndpoint(baseUrl) {
   if (clean.endsWith("/responses")) return clean;
   if (clean.endsWith("/v1")) return `${clean}/responses`;
   return `${clean}/v1/responses`;
+}
+
+function explainRequestError(error, endpoint) {
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  const endpointOrigin = safeOrigin(endpoint);
+
+  if (rawMessage.includes("Failed to fetch")) {
+    return {
+      rawMessage: `${rawMessage}（可能是 CORS 拦截）`,
+      userMessage: `AI 请求被浏览器拦截（CORS）。请让 ${endpointOrigin} 放开当前站点跨域，或改用支持 CORS 的 Base URL。`,
+    };
+  }
+
+  return {
+    rawMessage,
+    userMessage: `AI 请求失败：${rawMessage}`,
+  };
+}
+
+function safeOrigin(url) {
+  try {
+    return new URL(url).origin;
+  } catch (error) {
+    return url;
+  }
 }
 
 function buildSystemPrompt() {
