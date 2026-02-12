@@ -6,7 +6,7 @@
 
 - **提示词生成**：根据 `jimeng-video` skills 规则生成提示词
 - **生成记录**：本地记录每次输入参数与生成结果
-- **AI 设置**：推荐填 `/api/generate` 走 Vercel 代理（前端无需暴露 API Key）
+- **AI 设置**：BYOK（每位用户填写自己的 API Key，服务端不保存）
 
 ## 本地运行（前端）
 
@@ -22,12 +22,11 @@ python3 -m http.server 8080
 
 1. 将仓库推送到 GitHub（`main` 分支）。
 2. 在 Vercel 导入此仓库（Framework 选择 `Other`）。
-3. 在 Vercel 项目 `Settings -> Environment Variables` 配置：
-   - `GLM_API_KEY`：你的 GLM Coding Plan key（必填）
+3. 在 Vercel 项目 `Settings -> Environment Variables` 可选配置：
    - `GLM_BASE_URL`：`https://open.bigmodel.cn/api/coding/paas/v4`（可选）
    - `GLM_MODEL`：`glm-4.7`（可选）
 4. 重新部署后，前端 `AI 设置` 中 Base URL 填 `/api/generate`（默认即是）。
-5. API Key 输入框可留空（仅直连模式才需要填写）。
+5. 每位使用者都需要在页面中填写自己的 API Key（BYOK）。
 
 ## 默认 AI 配置（Vercel 代理模式）
 
@@ -38,8 +37,8 @@ python3 -m http.server 8080
   "apiType": "proxy-or-openai-chat-completions",
   "modelId": "glm-4.7",
   "maxOutputTokens": 2048,
-  "apiKey": ""
+  "apiKey": "每位用户自行填写"
 }
 ```
 
-> 注意：如果你改成“直连模型”模式，才需要在前端填写 API Key，并自行处理 CORS。
+> 注意：API Key 仅保存在浏览器当前会话（sessionStorage）。关闭页面后需重新填写。

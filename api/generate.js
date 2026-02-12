@@ -42,9 +42,9 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const apiKey = String(process.env.GLM_API_KEY || "").trim();
+    const apiKey = resolveApiKey(req, payload);
     if (!apiKey) {
-      res.status(500).json({ error: "服务端未配置 GLM_API_KEY。" });
+      res.status(401).json({ error: "缺少 API Key。请在页面 AI 设置中填写后再生成。" });
       return;
     }
 
@@ -102,7 +102,7 @@ module.exports = async function handler(req, res) {
       output,
       model,
       provider: "glm",
-      mode: "vercel-proxy",
+      mode: "vercel-proxy-byok",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -127,6 +127,31 @@ function parsePayload(body) {
   }
   if (typeof body === "object") return body;
   return {};
+}
+
+function resolveApiKey(req, payload) {
+  const authHeader = readHeader(req, "authorization");
+  if (authHeader) {
+    const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (bearerMatch && bearerMatch[1]) {
+      return bearerMatch[1].trim();
+    }
+    return authHeader.trim();
+  }
+
+  const bodyKey = payload && typeof payload === "object" ? String(payload.apiKey || "").trim() : "";
+  return bodyKey;
+}
+
+function readHeader(req, name) {
+  if (!req || !req.headers) return "";
+  const lowerName = String(name || "").toLowerCase();
+  if (typeof req.headers.get === "function") {
+    return String(req.headers.get(lowerName) || req.headers.get(name) || "").trim();
+  }
+  const value = req.headers[lowerName] ?? req.headers[name];
+  if (Array.isArray(value)) return String(value[0] || "").trim();
+  return String(value || "").trim();
 }
 
 function validatePayload(payload) {

@@ -1,6 +1,7 @@
 const STORAGE_KEYS = {
   settings: "prompt-master-ai-settings",
   records: "prompt-master-records",
+  sessionApiKey: "prompt-master-session-api-key",
 };
 
 const VIEW_META = {
@@ -14,7 +15,7 @@ const VIEW_META = {
   },
   settings: {
     title: "AI 设置",
-    subtitle: "推荐 Vercel 代理模式（/api/generate），仅需配置 Base URL",
+    subtitle: "BYOK 模式：每位成员填写自己的 API Key，经 Vercel 代理调用",
   },
 };
 
@@ -51,7 +52,7 @@ const DEFAULT_SETTINGS = {
 
 const state = {
   skillContext: FALLBACK_SKILL_CONTEXT.trim(),
-  settings: sanitizeStoredSettings(readJson(STORAGE_KEYS.settings, DEFAULT_SETTINGS)),
+  settings: attachSessionApiKey(sanitizeStoredSettings(readJson(STORAGE_KEYS.settings, DEFAULT_SETTINGS))),
   records: normalizeRecords(readJson(STORAGE_KEYS.records, [])),
   activeView: "generator",
 };
@@ -196,7 +197,6 @@ function bindSettingsEvents() {
     const apiKey = String(formData.get("apiKey") || "").trim();
     const baseUrl = String(formData.get("baseUrl") || "").trim();
     const resolvedBaseUrl = baseUrl || DEFAULT_SETTINGS.baseUrl;
-    const proxyMode = isProxyEndpoint(resolvedBaseUrl);
 
     const next = normalizeSettings({
       ...DEFAULT_SETTINGS,
@@ -204,20 +204,22 @@ function bindSettingsEvents() {
       baseUrl: resolvedBaseUrl,
     });
 
-    if (!next.apiKey && !proxyMode) {
-      setSettingsStatus("直连模型模式需要填写 API Key。", "warning");
+    if (!next.apiKey) {
+      setSettingsStatus("BYOK 模式下必须填写 API Key。", "warning");
       return;
     }
 
     state.settings = next;
-    writeJson(STORAGE_KEYS.settings, state.settings);
+    persistSettings();
+    writeSessionApiKey(state.settings.apiKey);
     refreshApiHint();
-    setSettingsStatus("设置已保存。", "success");
+    setSettingsStatus("设置已保存。API Key 仅保存在当前浏览器会话。", "success");
   });
 
   elements.resetSettingsBtn.addEventListener("click", () => {
-    state.settings = { ...DEFAULT_SETTINGS };
-    writeJson(STORAGE_KEYS.settings, state.settings);
+    state.settings = { ...DEFAULT_SETTINGS, apiKey: "" };
+    persistSettings();
+    clearSessionApiKey();
     hydrateSettingsForm();
     refreshApiHint();
     setSettingsStatus("已恢复默认配置，请重新填写 API Key。", "warning");
@@ -316,15 +318,8 @@ function setSkillStatus(message, level) {
 }
 
 function refreshApiHint() {
-  if (isProxyEndpoint(state.settings.baseUrl)) {
-    if (elements.generationStatus.textContent.includes("API Key")) {
-      setGenerationStatus("当前使用 Vercel 代理模式，可直接生成。", "info");
-    }
-    return;
-  }
-
   if (!state.settings.apiKey) {
-    setGenerationStatus("尚未配置 API Key，请先到“AI 设置”完成配置。", "warning");
+    setGenerationStatus("尚未配置 API Key（BYOK），请先到“AI 设置”完成配置。", "warning");
     return;
   }
 
@@ -371,16 +366,18 @@ async function handleGenerate(event) {
     return;
   }
 
-  if (!state.settings.apiKey && !isProxyEndpoint(state.settings.baseUrl)) {
-    setGenerationStatus("未检测到 API Key，请先在 AI 设置中完成配置。", "warning");
+  if (!state.settings.apiKey) {
+    setGenerationStatus("未检测到 API Key（BYOK），请先在 AI 设置中完成配置。", "warning");
     setActiveView("settings");
-    setSettingsStatus("请先填写 API Key 并保存（直连模式）。", "warning");
+    setSettingsStatus("请先填写 API Key 并保存。", "warning");
     return;
   }
 
   setGeneratingState(true);
   setGenerationStatus("正在调用 AI 生成，请稍候...", "info");
-  const endpoint = resolveChatCompletionsEndpoint(state.settings.baseUrl);
+  const endpoint = isProxyEndpoint(state.settings.baseUrl)
+    ? resolveProxyEndpoint(state.settings.baseUrl)
+    : resolveChatCompletionsEndpoint(state.settings.baseUrl);
 
   try {
     const output = normalizeGeneratedOutput(await requestAI(payload));
@@ -454,6 +451,7 @@ async function requestAIByProxy(payload) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${state.settings.apiKey}`,
     },
     body: JSON.stringify(payload),
   });
@@ -557,7 +555,7 @@ function explainRequestError(error, endpoint) {
   if (rawMessage.includes("401") || rawMessage.includes("Unauthorized")) {
     return {
       rawMessage,
-      userMessage: "认证失败（401）。请检查 GLM API Key 是否正确（通常为 id.secret）且仍有效。",
+      userMessage: "认证失败（401）。请检查你在页面中填写的 GLM API Key（通常为 id.secret）是否正确且仍有效。",
     };
   }
 
@@ -793,6 +791,13 @@ function persistRecords() {
   writeJson(STORAGE_KEYS.records, state.records);
 }
 
+function persistSettings() {
+  writeJson(STORAGE_KEYS.settings, {
+    ...state.settings,
+    apiKey: "",
+  });
+}
+
 function renderRecords() {
   const keyword = elements.recordSearchInput.value.trim().toLowerCase();
   const filtered = state.records.filter((record) => {
@@ -913,6 +918,41 @@ function writeJson(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+function readSessionApiKey() {
+  try {
+    return String(window.sessionStorage.getItem(STORAGE_KEYS.sessionApiKey) || "").trim();
+  } catch (error) {
+    return "";
+  }
+}
+
+function writeSessionApiKey(apiKey) {
+  try {
+    if (!apiKey) {
+      window.sessionStorage.removeItem(STORAGE_KEYS.sessionApiKey);
+      return;
+    }
+    window.sessionStorage.setItem(STORAGE_KEYS.sessionApiKey, String(apiKey).trim());
+  } catch (error) {
+    // no-op
+  }
+}
+
+function clearSessionApiKey() {
+  try {
+    window.sessionStorage.removeItem(STORAGE_KEYS.sessionApiKey);
+  } catch (error) {
+    // no-op
+  }
+}
+
+function attachSessionApiKey(settings) {
+  return {
+    ...settings,
+    apiKey: readSessionApiKey(),
+  };
+}
+
 function sanitizeStoredSettings(raw) {
   const storedBaseUrl = String(raw?.baseUrl || "").trim();
   const storedModelId = String(raw?.modelId || "").trim();
@@ -925,7 +965,7 @@ function sanitizeStoredSettings(raw) {
   return normalizeSettings({
     ...DEFAULT_SETTINGS,
     ...raw,
-    apiKey: String(raw?.apiKey || "").trim(),
+    apiKey: "",
     baseUrl: legacyDirectBaseUrls.includes(storedBaseUrl) ? "/api/generate" : storedBaseUrl || DEFAULT_SETTINGS.baseUrl,
     modelId: storedModelId === "glm-4.7-flash" ? "glm-4.7" : storedModelId || DEFAULT_SETTINGS.modelId,
     modelName: storedModelName === "GLM-4.7-Flash" ? "GLM-4.7" : storedModelName || DEFAULT_SETTINGS.modelName,
