@@ -51,37 +51,32 @@ module.exports = async function handler(req, res) {
     const runtime = resolveRuntimeConfig();
     const endpoint = resolveEndpoint(runtime.baseUrl, runtime.apiMode);
     const skillContext = await loadSkillContext();
-    const requestBody = buildRequestBody(runtime, payload, skillContext);
+    const requestBody = buildRequestBody(runtime, payload, skillContext, "default");
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    let upstream = await requestUpstream(endpoint, apiKey, requestBody);
 
-    const rawText = await response.text();
-    let data = {};
+    if (shouldRetryWithCompatMode(runtime, upstream)) {
+      const compatBody = buildRequestBody(runtime, payload, skillContext, "responses-compat");
+      upstream = await requestUpstream(endpoint, apiKey, compatBody);
+    }
 
-    try {
-      data = rawText ? JSON.parse(rawText) : {};
-    } catch (error) {
-      if (!response.ok) {
-        res.status(response.status).json({ error: `上游返回非 JSON（${response.status}）。` });
+    if (!upstream.isJson) {
+      if (!upstream.response.ok) {
+        res
+          .status(upstream.response.status)
+          .json({ error: `上游返回非 JSON（${upstream.response.status}）。${sanitizeRawSnippet(upstream.rawText)}`.trim() });
         return;
       }
       res.status(502).json({ error: "上游返回非 JSON，无法解析。" });
       return;
     }
 
-    if (!response.ok) {
-      res.status(response.status).json({ error: extractApiError(data) });
+    if (!upstream.response.ok) {
+      res.status(upstream.response.status).json({ error: extractApiError(upstream.data) });
       return;
     }
 
-    const output = ensureCompleteOutput(normalizeGeneratedOutput(extractResponseText(data)), payload);
+    const output = ensureCompleteOutput(normalizeGeneratedOutput(extractResponseText(upstream.data)), payload);
     if (!output) {
       res.status(502).json({ error: "上游返回为空内容。" });
       return;
@@ -103,6 +98,51 @@ function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+}
+
+async function requestUpstream(endpoint, apiKey, requestBody) {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  const rawText = await response.text();
+  let data = null;
+
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch (error) {
+    data = null;
+  }
+
+  return {
+    response,
+    rawText,
+    data,
+    isJson: Boolean(data && typeof data === "object"),
+  };
+}
+
+function shouldRetryWithCompatMode(runtime, upstream) {
+  return (
+    runtime.apiMode === "responses" &&
+    !upstream.isJson &&
+    upstream.response &&
+    upstream.response.status >= 500
+  );
+}
+
+function sanitizeRawSnippet(rawText) {
+  const plain = String(rawText || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!plain) return "";
+  return ` 片段：${plain.slice(0, 180)}`;
 }
 
 function parsePayload(body) {
@@ -208,11 +248,28 @@ function resolveEndpoint(baseUrl, apiMode) {
   return `${baseUrl}/chat/completions`;
 }
 
-function buildRequestBody(runtime, payload, skillContext) {
+function buildRequestBody(runtime, payload, skillContext, variant = "default") {
   const systemPrompt = buildSystemPrompt(skillContext);
   const userPrompt = buildUserPrompt(payload);
 
   if (runtime.apiMode === "responses") {
+    if (variant === "responses-compat") {
+      return {
+        model: runtime.model,
+        input: [
+          {
+            role: "system",
+            content: [{ type: "input_text", text: systemPrompt }],
+          },
+          {
+            role: "user",
+            content: [{ type: "input_text", text: userPrompt }],
+          },
+        ],
+        max_output_tokens: 4096,
+      };
+    }
+
     return {
       model: runtime.model,
       instructions: systemPrompt,
