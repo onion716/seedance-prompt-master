@@ -6,7 +6,7 @@ const STORAGE_KEYS = {
 const VIEW_META = {
   generator: {
     title: "提示词生成",
-    subtitle: "基于 jimeng-video skills 规则生成即梦 Seedance 分镜提示词",
+    subtitle: "基于 jimeng-video skills 生成可直接粘贴到即梦的分镜提示词",
   },
   records: {
     title: "生成记录",
@@ -374,7 +374,7 @@ async function handleGenerate(event) {
   const endpoint = resolveChatCompletionsEndpoint(state.settings.baseUrl);
 
   try {
-    const output = await requestAI(payload);
+    const output = normalizeGeneratedOutput(await requestAI(payload));
     setOutput(output);
     saveRecord(payload, output, "AI");
     renderRecords();
@@ -533,42 +533,67 @@ function safeOrigin(url) {
 }
 
 function buildSystemPrompt() {
-  const contextSnippet = state.skillContext.slice(0, 42000);
+  const contextSnippet = state.skillContext.slice(0, 16000);
   return [
     "你是提示词大师中的即梦 Seedance 2.0 视频分镜提示词专家。",
-    "你必须严格按技能文档规则生成，确保输出结构完整、专业、可直接使用。",
-    "输出必须包含以下四个部分：",
-    "1. 整体说明（视频类型、时长、风格）",
-    "2. 分段提示词（按时间顺序，含运镜+主体+动作+场景+氛围/音效）",
-    "3. 参考说明（如有@素材，明确用途）",
-    "4. 优化建议（至少3条可执行建议）",
-    "请使用简体中文，禁止输出与视频创作无关的内容。",
+    "目标：输出可直接粘贴到即梦使用的分镜提示词。",
+    "硬性规则：",
+    "1) 严格遵循用户指定时长段落，按时间顺序输出。",
+    "2) 每段必须使用结构：运镜 + 主体 + 动作 + 场景 + 氛围/音效。",
+    "3) 主体、动作、场景要具体，禁止模糊词（如“一个人”“某个地方”）。",
+    "4) 有素材时必须写明 @图片X / @视频X / @音频X 的用途；无素材写“无”。",
+    "5) 不要输出 Markdown 标题符号（#）和加粗符号（**）。",
+    "6) 只按模板输出，不要额外寒暄和解释。",
     "",
-    "以下是必须参考的技能文档内容：",
+    "输出模板（标题文字必须一致）：",
+    "【即梦分镜提示词】",
+    "X-Y秒画面：运镜 + 主体 + 动作 + 场景 + 氛围/音效",
+    "X-Y秒画面：运镜 + 主体 + 动作 + 场景 + 氛围/音效",
+    "【素材引用说明】",
+    "若有素材：逐条写用途；若无素材：写“无”",
+    "【优化建议】",
+    "1. ...",
+    "2. ...",
+    "3. ...",
+    "",
+    "以下为必须遵循的技能规则摘录：",
     contextSnippet,
   ].join("\n");
 }
 
 function buildUserPrompt(payload) {
+  const slots = getDurationSlots(payload.videoDuration);
   return [
-    "请根据以下需求生成即梦 Seedance 2.0 视频分镜提示词：",
-    `- 提示词标题：${payload.promptTitle}`,
-    `- 主题：${payload.theme}`,
-    `- 视频类型：${payload.videoType}`,
-    `- 视频时长：${payload.videoDuration}`,
-    `- 核心内容：${payload.coreContent}`,
-    `- 风格偏好：${payload.stylePreference}`,
-    `- 运镜偏好：${payload.cameraStyle || "无额外偏好，请按主题设计"}`,
-    `- 参考图片：${payload.referenceImages || "无"}`,
-    `- 参考视频：${payload.referenceVideos || "无"}`,
-    `- 参考音频：${payload.referenceAudios || "无"}`,
-    `- 特殊要求：${payload.specialRequirement || "无"}`,
+    "请根据以下需求生成即梦 Seedance 2.0 分镜提示词：",
+    `提示词标题：${payload.promptTitle}`,
+    `主题：${payload.theme}`,
+    `视频类型：${payload.videoType}`,
+    `视频时长：${payload.videoDuration}`,
+    `核心内容：${payload.coreContent}`,
+    `风格偏好：${payload.stylePreference}`,
+    `运镜偏好：${payload.cameraStyle || "无额外偏好，请按主题设计"}`,
+    `参考图片：${payload.referenceImages || "无"}`,
+    `参考视频：${payload.referenceVideos || "无"}`,
+    `参考音频：${payload.referenceAudios || "无"}`,
+    `特殊要求：${payload.specialRequirement || "无"}`,
     "",
-    "请确保：",
-    "- 时长分段符合规范（4-6秒、7-10秒、11-15秒）。",
-    "- 如果无素材，给出可替代的描述策略。",
-    "- 提示词可直接复制使用。",
+    "段落时间规划（必须逐条对应输出）：",
+    ...slots.map((slot) => `- ${slot}画面`),
+    "",
+    "额外要求：",
+    `- 必须输出 ${slots.length} 段分镜，不能多也不能少。`,
+    "- 每段都写成可直接用于生成的视频画面描述，不要写占位符。",
+    "- 语言使用简体中文。",
   ].join("\n");
+}
+
+function normalizeGeneratedOutput(text) {
+  return String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function extractApiError(data) {
@@ -619,21 +644,19 @@ function collectText(value, bucket) {
 function buildFallbackPrompt(payload, reason) {
   const segments = buildSegments(payload.videoDuration, payload);
   const references = [
-    payload.referenceImages ? `- 图片参考：${payload.referenceImages}` : "- 图片参考：无",
-    payload.referenceVideos ? `- 视频参考：${payload.referenceVideos}` : "- 视频参考：无",
-    payload.referenceAudios ? `- 音频参考：${payload.referenceAudios}` : "- 音频参考：无",
-  ].join("\n");
+    payload.referenceImages ? `@图片：${payload.referenceImages}` : "",
+    payload.referenceVideos ? `@视频：${payload.referenceVideos}` : "",
+    payload.referenceAudios ? `@音频：${payload.referenceAudios}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   return [
-    "【整体说明】",
-    `${payload.videoType} | ${payload.videoDuration} | 风格：${payload.stylePreference}`,
-    `主题聚焦：${payload.theme}`,
-    "",
-    "【分段提示词】",
+    "【即梦分镜提示词】",
     ...segments,
     "",
-    "【参考说明】",
-    references,
+    "【素材引用说明】",
+    references || "无",
     "",
     "【优化建议】",
     "1. 若有真实素材，请将关键角色和场景用 @图片X 明确锚定，提升一致性。",
@@ -655,14 +678,14 @@ function buildSegments(duration, payload) {
 
   return slots.map((slot, index) => {
     const camera = cameraDefaults[index] || cameraDefaults[cameraDefaults.length - 1] || "跟随镜头";
-    return `${slot}：${camera} + 主体动作「${payload.coreContent}」 + 场景围绕「${payload.theme}」展开 + 氛围风格「${payload.stylePreference}」`;
+    return `${slot}画面：${camera} + 主体动作「${payload.coreContent}」 + 场景围绕「${payload.theme}」展开 + 氛围风格「${payload.stylePreference}」`;
   });
 }
 
 function getDurationSlots(duration) {
-  if (duration === "4-6秒") return ["0-2秒", "3-6秒"];
-  if (duration === "7-10秒") return ["0-3秒", "4-7秒", "8-10秒"];
-  return ["0-3秒", "4-6秒", "7-9秒", "10-12秒", "13-15秒"];
+  if (duration === "4-6秒") return ["0-3秒", "3-6秒"];
+  if (duration === "7-10秒") return ["0-3秒", "3-7秒", "7-10秒"];
+  return ["0-3秒", "3-6秒", "6-9秒", "9-12秒", "12-15秒"];
 }
 
 function setGenerationStatus(message, type = "info") {
