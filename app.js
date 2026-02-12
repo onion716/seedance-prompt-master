@@ -14,7 +14,7 @@ const VIEW_META = {
   },
   settings: {
     title: "AI 设置",
-    subtitle: "仅需配置 API Key 与 Base URL（需支持 CORS）",
+    subtitle: "默认 MiniMax Coding 配置，仅需填写 API Key 与 Base URL",
   },
 };
 
@@ -35,17 +35,17 @@ const FALLBACK_SKILL_CONTEXT = `
 
 const DEFAULT_SETTINGS = {
   mode: "merge",
-  provider: "gmn",
-  baseUrl: "https://gmn.chuangzuoli.com/v1",
-  apiType: "openai-responses",
-  modelId: "gpt-5.3-codex",
-  modelName: "GPT 5.3 Codex",
-  reasoning: true,
+  provider: "minimax",
+  baseUrl: "https://api.minimaxi.com/v1",
+  apiType: "openai-chat-completions",
+  modelId: "MiniMax-Text-01",
+  modelName: "MiniMax Text 01",
+  reasoning: false,
   input: ["text", "image"],
   contextWindow: 200000,
-  maxTokens: 16384,
+  maxTokens: 8192,
   userAgent: "CodexCLI/2026.1",
-  maxOutputTokens: 1400,
+  maxOutputTokens: 2048,
   apiKey: "",
 };
 
@@ -371,7 +371,7 @@ async function handleGenerate(event) {
 
   setGeneratingState(true);
   setGenerationStatus("正在调用 AI 生成，请稍候...", "info");
-  const endpoint = resolveResponsesEndpoint(state.settings.baseUrl);
+  const endpoint = resolveChatCompletionsEndpoint(state.settings.baseUrl);
 
   try {
     const output = await requestAI(payload);
@@ -432,28 +432,26 @@ function validatePayload(payload) {
 }
 
 async function requestAI(payload) {
-  const endpoint = resolveResponsesEndpoint(state.settings.baseUrl);
+  const endpoint = resolveChatCompletionsEndpoint(state.settings.baseUrl);
   const systemPrompt = buildSystemPrompt();
   const userPrompt = buildUserPrompt(payload);
 
   const requestBody = {
     model: state.settings.modelId,
-    max_output_tokens: state.settings.maxOutputTokens,
-    input: [
+    messages: [
       {
         role: "system",
-        content: [{ type: "input_text", text: systemPrompt }],
+        content: systemPrompt,
       },
       {
         role: "user",
-        content: [{ type: "input_text", text: userPrompt }],
+        content: userPrompt,
       },
     ],
+    max_tokens: state.settings.maxOutputTokens,
+    temperature: 0.2,
+    stream: false,
   };
-
-  if (state.settings.reasoning) {
-    requestBody.reasoning = { effort: "medium" };
-  }
 
   const response = await fetch(endpoint, {
     method: "POST",
@@ -488,17 +486,31 @@ async function requestAI(payload) {
   return output;
 }
 
-function resolveResponsesEndpoint(baseUrl) {
+function resolveChatCompletionsEndpoint(baseUrl) {
   const clean = String(baseUrl || "").trim().replace(/\/+$/, "");
-  if (!clean) return "https://gmn.chuangzuoli.com/v1/responses";
-  if (clean.endsWith("/responses")) return clean;
-  if (clean.endsWith("/v1")) return `${clean}/responses`;
-  return `${clean}/v1/responses`;
+  if (!clean) return "https://api.minimaxi.com/v1/chat/completions";
+  if (clean.endsWith("/chat/completions")) return clean;
+  if (clean.endsWith("/v1")) return `${clean}/chat/completions`;
+  return `${clean}/v1/chat/completions`;
 }
 
 function explainRequestError(error, endpoint) {
   const rawMessage = error instanceof Error ? error.message : String(error);
   const endpointOrigin = safeOrigin(endpoint);
+
+  if (rawMessage.includes("401") || rawMessage.includes("Unauthorized")) {
+    return {
+      rawMessage,
+      userMessage: "认证失败（401）。请检查 MiniMax Coding Plan API Key 是否正确且仍有效。",
+    };
+  }
+
+  if (rawMessage.includes("403")) {
+    return {
+      rawMessage,
+      userMessage: `访问被拒绝（403）。请确认账号权限、区域端点（.com/.io）以及 ${endpointOrigin} 的跨域策略。`,
+    };
+  }
 
   if (rawMessage.includes("Failed to fetch")) {
     return {

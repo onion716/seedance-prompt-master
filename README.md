@@ -6,7 +6,7 @@
 
 - **提示词生成**：根据 `jimeng-video` skills 规则生成提示词
 - **生成记录**：本地记录每次输入参数与生成结果
-- **AI 设置**：默认 gmn + OpenAI Responses 配置，首次需填写 API Key
+- **AI 设置**：默认 MiniMax Coding 配置，首次需填写 API Key
 
 ## 本地运行
 
@@ -32,29 +32,13 @@ http://localhost:8080
 
 ```json
 {
-  "models": {
-    "mode": "merge",
-    "providers": {
-      "gmn": {
-        "baseUrl": "https://gmn.chuangzuoli.com/v1",
-        "apiKey": "OPENAI_API_KEY",
-        "api": "openai-responses",
-        "models": [
-          {
-            "id": "gpt-5.3-codex",
-            "name": "GPT 5.3 Codex",
-            "reasoning": true,
-            "input": ["text", "image"],
-            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-            "contextWindow": 200000,
-            "maxTokens": 16384,
-            "headers": { "User-Agent": "CodexCLI/2026.1" }
-          }
-        ]
-      }
-    }
-  }
+  "provider": "minimax",
+  "baseUrl": "https://api.minimaxi.com/v1",
+  "apiType": "openai-chat-completions",
+  "modelId": "MiniMax-Text-01",
+  "maxOutputTokens": 2048,
+  "apiKey": "MINIMAX_API_KEY"
 }
 ```
 
-> 注意：浏览器环境无法手动设置 `User-Agent` 请求头，该字段会在页面中保留用于配置展示。
+> 注意：如果出现 `Failed to fetch`，通常是 CORS 限制。请改用支持当前站点跨域的 Base URL，或使用你自己的后端代理。

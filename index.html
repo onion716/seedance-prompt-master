@@ -272,7 +272,7 @@
           <div class="panel settings-panel">
             <div class="panel-head">
               <h3>AI 设置</h3>
-              <p>仅需填写 API Key 与 Base URL（需支持浏览器跨域 CORS）。</p>
+              <p>默认使用 MiniMax Coding 接口；仅需填写 API Key 与 Base URL。</p>
             </div>
 
             <form id="settings-form" class="settings-form" novalidate>
@@ -294,7 +294,12 @@
                 <div class="field-head">
                   <span>Base URL</span>
                 </div>
-                <input id="setting-base-url" name="baseUrl" type="url" />
+                <input
+                  id="setting-base-url"
+                  name="baseUrl"
+                  type="url"
+                  placeholder="例如：https://api.minimaxi.com/v1 或 https://api.minimax.io/v1"
+                />
               </label>
 
               <div class="form-actions">
