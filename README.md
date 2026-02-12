@@ -23,10 +23,16 @@ python3 -m http.server 8080
 1. 将仓库推送到 GitHub（`main` 分支）。
 2. 在 Vercel 导入此仓库（Framework 选择 `Other`）。
 3. 在 Vercel 项目 `Settings -> Environment Variables` 可选配置：
-   - `GLM_BASE_URL`：`https://open.bigmodel.cn/api/coding/paas/v4`（可选）
-   - `GLM_MODEL`：`glm-4.7`（可选）
+   - `UPSTREAM_BASE_URL`（推荐）或 `GLM_BASE_URL`（兼容）
+   - `UPSTREAM_MODEL`（推荐）或 `GLM_MODEL`（兼容）
+   - `UPSTREAM_API_MODE`：`chat` 或 `responses`（可选，默认自动判断）
 4. 重新部署后，前端 `AI 设置` 中 Base URL 填 `/api/generate`（默认即是）。
 5. 每位使用者都需要在页面中填写自己的 API Key（BYOK）。
+
+### 供应商配置示例
+
+- GLM：`UPSTREAM_BASE_URL=https://open.bigmodel.cn/api/coding/paas/v4`，`UPSTREAM_MODEL=glm-4.7`
+- GMN：`UPSTREAM_BASE_URL=https://gmn.chuangzuoli.com/v1`，`UPSTREAM_MODEL=gpt-5.3-codex`，`UPSTREAM_API_MODE=responses`
 
 ## 默认 AI 配置（Vercel 代理模式）
 

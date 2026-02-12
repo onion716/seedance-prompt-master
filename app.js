@@ -552,7 +552,7 @@ function explainRequestError(error, endpoint) {
   if (rawMessage.includes("401") || rawMessage.includes("Unauthorized")) {
     return {
       rawMessage,
-      userMessage: "认证失败（401）。请检查你在页面中填写的 GLM API Key（通常为 id.secret）是否正确且仍有效。",
+      userMessage: "认证失败（401）。请检查你在页面中填写的 API Key（通常为 id.secret）是否正确且仍有效。",
     };
   }
 

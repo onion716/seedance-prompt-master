@@ -48,21 +48,10 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const baseUrl = resolveBaseUrl(process.env.GLM_BASE_URL || DEFAULT_BASE_URL);
-    const endpoint = resolveEndpoint(baseUrl);
-    const model = String(process.env.GLM_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+    const runtime = resolveRuntimeConfig();
+    const endpoint = resolveEndpoint(runtime.baseUrl, runtime.apiMode);
     const skillContext = await loadSkillContext();
-
-    const requestBody = {
-      model,
-      messages: [
-        { role: "system", content: buildSystemPrompt(skillContext) },
-        { role: "user", content: buildUserPrompt(payload) },
-      ],
-      max_tokens: 4096,
-      temperature: 0.2,
-      stream: false,
-    };
+    const requestBody = buildRequestBody(runtime, payload, skillContext);
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -100,9 +89,9 @@ module.exports = async function handler(req, res) {
 
     res.status(200).json({
       output,
-      model,
-      provider: "glm",
-      mode: "vercel-proxy-byok",
+      model: runtime.model,
+      provider: runtime.apiMode === "responses" ? "gmn" : "glm",
+      mode: `vercel-proxy-byok-${runtime.apiMode}`,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -189,9 +178,60 @@ function resolveBaseUrl(baseUrl) {
   return clean || DEFAULT_BASE_URL;
 }
 
-function resolveEndpoint(baseUrl) {
+function resolveRuntimeConfig() {
+  const baseUrl = resolveBaseUrl(process.env.UPSTREAM_BASE_URL || process.env.GLM_BASE_URL || DEFAULT_BASE_URL);
+  const model = String(process.env.UPSTREAM_MODEL || process.env.GLM_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+  const explicitMode = String(process.env.UPSTREAM_API_MODE || "").trim().toLowerCase();
+  const apiMode = resolveApiMode(baseUrl, explicitMode);
+  return { baseUrl, model, apiMode };
+}
+
+function resolveApiMode(baseUrl, explicitMode) {
+  if (explicitMode === "responses") return "responses";
+  if (explicitMode === "chat") return "chat";
+
+  const lower = String(baseUrl || "").toLowerCase();
+  if (lower.endsWith("/responses")) return "responses";
+  if (lower.includes("gmn.chuangzuoli.com")) return "responses";
+  return "chat";
+}
+
+function resolveEndpoint(baseUrl, apiMode) {
+  if (apiMode === "responses") {
+    if (baseUrl.endsWith("/responses")) return baseUrl;
+    if (baseUrl.endsWith("/chat/completions")) return baseUrl.replace(/\/chat\/completions$/, "/responses");
+    return `${baseUrl}/responses`;
+  }
+
   if (baseUrl.endsWith("/chat/completions")) return baseUrl;
+  if (baseUrl.endsWith("/responses")) return baseUrl.replace(/\/responses$/, "/chat/completions");
   return `${baseUrl}/chat/completions`;
+}
+
+function buildRequestBody(runtime, payload, skillContext) {
+  const systemPrompt = buildSystemPrompt(skillContext);
+  const userPrompt = buildUserPrompt(payload);
+
+  if (runtime.apiMode === "responses") {
+    return {
+      model: runtime.model,
+      instructions: systemPrompt,
+      input: userPrompt,
+      max_output_tokens: 4096,
+      temperature: 0.2,
+    };
+  }
+
+  return {
+    model: runtime.model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    max_tokens: 4096,
+    temperature: 0.2,
+    stream: false,
+  };
 }
 
 function buildSystemPrompt(skillContext) {
