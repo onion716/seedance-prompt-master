@@ -249,7 +249,14 @@ function extractResponseText(data) {
   if (!chunks.length) collectText(data.response, chunks);
   if (!chunks.length) collectText(data.choices, chunks);
 
-  return chunks.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const deduped = [];
+  for (const chunk of chunks.map((item) => String(item).trim()).filter(Boolean)) {
+    if (!deduped.length || deduped[deduped.length - 1] !== chunk) {
+      deduped.push(chunk);
+    }
+  }
+
+  return deduped.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function collectText(value, bucket) {
@@ -268,9 +275,16 @@ function collectText(value, bucket) {
   if (typeof value === "object") {
     if (typeof value.text === "string") bucket.push(value.text);
     if (typeof value.output_text === "string") bucket.push(value.output_text);
-    if (typeof value.content === "string") bucket.push(value.content);
-    if (value.content) collectText(value.content, bucket);
-    if (value.message) collectText(value.message, bucket);
+    if (typeof value.content === "string") {
+      bucket.push(value.content);
+    } else if (value.content) {
+      collectText(value.content, bucket);
+    }
+    if (typeof value.message === "string") {
+      bucket.push(value.message);
+    } else if (value.message) {
+      collectText(value.message, bucket);
+    }
     if (value.output) collectText(value.output, bucket);
   }
 }
