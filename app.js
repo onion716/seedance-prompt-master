@@ -78,7 +78,6 @@ const elements = {
 
   settingsForm: document.getElementById("settings-form"),
   settingsStatus: document.getElementById("settings-status"),
-  settingsPreview: document.getElementById("settings-preview"),
   resetSettingsBtn: document.getElementById("reset-settings-btn"),
 
   settingApiKey: document.getElementById("setting-api-key"),
@@ -95,7 +94,6 @@ async function init() {
   bindCounters();
 
   hydrateSettingsForm();
-  renderSettingsPreview();
   renderRecords();
 
   const hashView = parseHashView();
@@ -211,7 +209,6 @@ function bindSettingsEvents() {
 
     state.settings = next;
     writeJson(STORAGE_KEYS.settings, state.settings);
-    renderSettingsPreview();
     refreshApiHint();
     setSettingsStatus("设置已保存。", "success");
   });
@@ -220,7 +217,6 @@ function bindSettingsEvents() {
     state.settings = { ...DEFAULT_SETTINGS };
     writeJson(STORAGE_KEYS.settings, state.settings);
     hydrateSettingsForm();
-    renderSettingsPreview();
     refreshApiHint();
     setSettingsStatus("已恢复默认配置，请重新填写 API Key。", "warning");
   });
@@ -733,48 +729,6 @@ function fillFormByRecord(record) {
 function hydrateSettingsForm() {
   elements.settingApiKey.value = state.settings.apiKey;
   elements.settingBaseUrl.value = state.settings.baseUrl;
-}
-
-function renderSettingsPreview() {
-  const preview = {
-    models: {
-      mode: state.settings.mode,
-      providers: {
-        [state.settings.provider || "gmn"]: {
-          baseUrl: state.settings.baseUrl,
-          apiKey: state.settings.apiKey ? maskApiKey(state.settings.apiKey) : "OPENAI_API_KEY",
-          api: state.settings.apiType,
-          models: [
-            {
-              id: state.settings.modelId,
-              name: state.settings.modelName,
-              reasoning: state.settings.reasoning,
-              input: state.settings.input,
-              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-              contextWindow: state.settings.contextWindow,
-              maxTokens: state.settings.maxTokens,
-              headers: {
-                "User-Agent": state.settings.userAgent,
-              },
-            },
-          ],
-        },
-      },
-    },
-    runtime: {
-      maxOutputTokens: state.settings.maxOutputTokens,
-      endpoint: resolveResponsesEndpoint(state.settings.baseUrl),
-    },
-    note: "浏览器环境不允许手动设置 User-Agent 请求头，实际请求将由浏览器自动携带。",
-  };
-
-  elements.settingsPreview.textContent = JSON.stringify(preview, null, 2);
-}
-
-function maskApiKey(apiKey) {
-  if (!apiKey) return "";
-  const visible = apiKey.slice(-4);
-  return `${"*".repeat(Math.max(apiKey.length - 4, 3))}${visible}`;
 }
 
 function createId() {
