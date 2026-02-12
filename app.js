@@ -418,9 +418,6 @@ function collectPromptFormData() {
     coreContent: String(formData.get("coreContent") || "").trim(),
     stylePreference: String(formData.get("stylePreference") || "").trim(),
     cameraStyle: String(formData.get("cameraStyle") || "").trim(),
-    referenceImages: String(formData.get("referenceImages") || "").trim(),
-    referenceVideos: String(formData.get("referenceVideos") || "").trim(),
-    referenceAudios: String(formData.get("referenceAudios") || "").trim(),
     specialRequirement: String(formData.get("specialRequirement") || "").trim(),
   };
 }
@@ -627,9 +624,6 @@ function buildUserPrompt(payload) {
     `核心内容：${payload.coreContent}`,
     `风格偏好：${payload.stylePreference}`,
     `运镜偏好：${payload.cameraStyle || "无额外偏好，请按主题设计"}`,
-    `参考图片：${payload.referenceImages || "无"}`,
-    `参考视频：${payload.referenceVideos || "无"}`,
-    `参考音频：${payload.referenceAudios || "无"}`,
     `特殊要求：${payload.specialRequirement || "无"}`,
     "",
     "段落时间规划（必须逐条对应输出）：",
@@ -810,9 +804,6 @@ function renderRecords() {
         `核心内容：${record.input.coreContent}`,
         `风格偏好：${record.input.stylePreference}`,
         `运镜偏好：${record.input.cameraStyle || "无"}`,
-        `参考图片：${record.input.referenceImages || "无"}`,
-        `参考视频：${record.input.referenceVideos || "无"}`,
-        `参考音频：${record.input.referenceAudios || "无"}`,
         `特殊要求：${record.input.specialRequirement || "无"}`,
       ];
 
@@ -858,9 +849,6 @@ function fillFormByRecord(record) {
     coreContent: data.coreContent,
     stylePreference: data.stylePreference,
     cameraStyle: data.cameraStyle,
-    referenceImages: data.referenceImages,
-    referenceVideos: data.referenceVideos,
-    referenceAudios: data.referenceAudios,
     specialRequirement: data.specialRequirement,
   };
 
