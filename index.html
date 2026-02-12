@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>提示词大师</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%2368ceff'/%3E%3Cstop offset='1' stop-color='%234ca2ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='%23081935'/%3E%3Cpath d='M12 12h24v6H12zm0 9h24v6H12zm0 9h15v6H12z' fill='url(%23g)'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-a" aria-hidden="true"></div>
+    <div class="ambient ambient-b" aria-hidden="true"></div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img">
+              <path
+                d="M4 6.2A2.2 2.2 0 0 1 6.2 4h11.6A2.2 2.2 0 0 1 20 6.2v11.6a2.2 2.2 0 0 1-2.2 2.2H6.2A2.2 2.2 0 0 1 4 17.8V6.2Zm4.2 1.3v9.2h1.8V7.5H8.2Zm3.5 0v9.2h1.8V7.5h-1.8Zm3.5 0v9.2H17V7.5h-1.8Z"
+              />
+            </svg>
+          </div>
+          <div>
+            <h1>提示词大师</h1>
+            <p>Seedance Prompt Studio</p>
+          </div>
+        </div>
+
+        <nav class="menu" aria-label="主菜单">
+          <button class="menu-item is-active" data-view-target="generator" type="button">
+            <span class="menu-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M5 6.8A1.8 1.8 0 0 1 6.8 5h10.4A1.8 1.8 0 0 1 19 6.8v10.4a1.8 1.8 0 0 1-1.8 1.8H6.8A1.8 1.8 0 0 1 5 17.2V6.8Zm2 .5v1.8h10V7.3H7Zm0 4v1.8h10v-1.8H7Z" />
+              </svg>
+            </span>
+            <span>提示词生成</span>
+          </button>
+          <button class="menu-item" data-view-target="records" type="button">
+            <span class="menu-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M7 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 2v12h10V6H7Zm2 2h6v1.8H9V8Zm0 3.5h6v1.8H9v-1.8Zm0 3.5h4v1.8H9V15Z" />
+              </svg>
+            </span>
+            <span>生成记录</span>
+          </button>
+          <button class="menu-item" data-view-target="settings" type="button">
+            <span class="menu-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="m11.2 3.1 1.6.1.4 2a6.8 6.8 0 0 1 1.8.8l1.7-1.1 1.2 1.1-1 1.8c.3.6.6 1.2.8 1.9l2 .4.1 1.6-2 .5c-.1.6-.4 1.3-.7 1.8l1.1 1.8-1.2 1.1-1.7-1a6.9 6.9 0 0 1-1.9.8l-.4 2-1.6.1-.5-2a7.8 7.8 0 0 1-1.8-.7L7.4 19l-1.1-1.2 1-1.7a8.4 8.4 0 0 1-.8-1.9l-2-.4-.1-1.6 2-.5c.2-.7.4-1.3.8-1.9l-1-1.7L7.4 5l1.8 1a7 7 0 0 1 1.8-.8l.2-2Zm.8 5.4a3.5 3.5 0 1 0 0 7.1 3.5 3.5 0 0 0 0-7.1Z" />
+              </svg>
+            </span>
+            <span>AI 设置</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <p>蓝黑主题 · 团队内部提示词协作工具</p>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <div>
+            <h2 id="view-title">提示词生成</h2>
+            <p id="view-subtitle">基于 jimeng-video skills 规则生成即梦 Seedance 分镜提示词</p>
+          </div>
+          <button class="btn-secondary" id="go-settings-btn" type="button">快速配置 API</button>
+        </header>
+
+        <section class="view is-active" data-view="generator">
+          <div class="alert" id="skill-context-status">正在加载 jimeng-video skills 规则...</div>
+          <div class="generator-grid">
+            <form id="prompt-form" class="panel input-panel" novalidate>
+              <div class="panel-head">
+                <h3>生成参数</h3>
+                <p>请尽量详细填写，越具体越能提升提示词质量。</p>
+              </div>
+
+              <label class="field">
+                <div class="field-head">
+                  <span>提示词标题</span>
+                  <span class="counter" data-counter-for="promptTitle">0 / 100</span>
+                </div>
+                <input
+                  id="promptTitle"
+                  name="promptTitle"
+                  maxlength="100"
+                  required
+                  placeholder="请输入提示词标题，仅作为记录方便查询"
+                  type="text"
+                />
+              </label>
+
+              <label class="field">
+                <div class="field-head">
+                  <span>主题</span>
+                  <span class="counter" data-counter-for="theme">0 / 300</span>
+                </div>
+                <textarea
+                  id="theme"
+                  name="theme"
+                  maxlength="300"
+                  required
+                  rows="3"
+                  placeholder="请输入你想要生成的提示词主题，越详细生成越准确"
+                ></textarea>
+              </label>
+
+              <div class="field-group">
+                <label class="field">
+                  <div class="field-head">
+                    <span>视频类型</span>
+                  </div>
+                  <select id="videoType" name="videoType" required>
+                    <option value="">请选择视频类型</option>
+                    <option value="品牌广告">品牌广告</option>
+                    <option value="剧情片">剧情片</option>
+                    <option value="音乐视频">音乐视频（MV）</option>
+                    <option value="纪录片">纪录片</option>
+                    <option value="短视频">短视频 / 社交媒体</option>
+                  </select>
+                </label>
+
+                <fieldset class="field duration-field">
+                  <legend>视频时长</legend>
+                  <div class="duration-options">
+                    <label>
+                      <input type="radio" name="videoDuration" value="4-6秒" required />
+                      <span>4-6秒</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="videoDuration" value="7-10秒" />
+                      <span>7-10秒</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="videoDuration" value="11-15秒" />
+                      <span>11-15秒</span>
+                    </label>
+                  </div>
+                </fieldset>
+              </div>
+
+              <label class="field">
+                <div class="field-head">
+                  <span>核心内容</span>
+                </div>
+                <textarea
+                  id="coreContent"
+                  name="coreContent"
+                  rows="4"
+                  required
+                  placeholder="模板：主角是谁 + 在什么场景 + 做什么动作 + 想表达什么情绪/信息"
+                ></textarea>
+              </label>
+
+              <label class="field">
+                <div class="field-head">
+                  <span>风格偏好</span>
+                </div>
+                <textarea
+                  id="stylePreference"
+                  name="stylePreference"
+                  rows="3"
+                  required
+                  placeholder="模板：写实/科幻/水墨 + 色调 + 节奏（慢镜头/卡点/快节奏）"
+                ></textarea>
+              </label>
+
+              <label class="field">
+                <div class="field-head">
+                  <span>运镜偏好（可选）</span>
+                </div>
+                <input
+                  id="cameraStyle"
+                  name="cameraStyle"
+                  type="text"
+                  placeholder="模板：开场推镜头，高潮环绕镜头，结尾拉远收束"
+                />
+              </label>
+
+              <label class="field">
+                <div class="field-head">
+                  <span>参考图片（可选）</span>
+                </div>
+                <textarea
+                  id="referenceImages"
+                  name="referenceImages"
+                  rows="2"
+                  placeholder="模板：@图片1 角色形象；@图片2 场景构图；@图片3 产品特写"
+                ></textarea>
+              </label>
+
+              <label class="field">
+                <div class="field-head">
+                  <span>参考视频（可选）</span>
+                </div>
+                <textarea
+                  id="referenceVideos"
+                  name="referenceVideos"
+                  rows="2"
+                  placeholder="模板：@视频1 参考运镜；@视频2 参考动作；@视频3 参考特效"
+                ></textarea>
+              </label>
+
+              <label class="field">
+                <div class="field-head">
+                  <span>参考音频（可选）</span>
+                </div>
+                <textarea
+                  id="referenceAudios"
+                  name="referenceAudios"
+                  rows="2"
+                  placeholder="模板：@音频1 背景音乐氛围；@音频2 旁白音色；@音频3 关键音效"
+                ></textarea>
+              </label>
+
+              <label class="field">
+                <div class="field-head">
+                  <span>特殊要求（可选）</span>
+                </div>
+                <textarea
+                  id="specialRequirement"
+                  name="specialRequirement"
+                  rows="2"
+                  placeholder="模板：需要无缝转场、保持人物一致性、片尾加字幕口号"
+                ></textarea>
+              </label>
+
+              <div class="form-actions">
+                <button class="btn-primary" id="generate-btn" type="submit">生成提示词</button>
+                <button class="btn-secondary" id="clear-form-btn" type="button">清空输入</button>
+              </div>
+            </form>
+
+            <section class="panel output-panel">
+              <div class="panel-head output-head">
+                <h3>AI 生成结果</h3>
+                <button class="btn-secondary" id="copy-output-btn" type="button" disabled>复制内容</button>
+              </div>
+              <p class="status status-info" id="generation-status">等待输入参数并点击生成。</p>
+              <textarea
+                id="generated-output"
+                readonly
+                placeholder="AI 根据 jimeng-video skills 生成的提示词将展示在这里..."
+              ></textarea>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-view="records">
+          <div class="panel records-panel">
+            <div class="panel-head records-head">
+              <div>
+                <h3>生成记录</h3>
+                <p>记录保存在浏览器本地（localStorage），仅在当前设备可见。</p>
+              </div>
+              <div class="records-controls">
+                <input id="record-search-input" type="search" placeholder="搜索标题或主题..." />
+                <button class="btn-danger" id="clear-records-btn" type="button">清空全部记录</button>
+              </div>
+            </div>
+            <div class="records-list" id="records-list"></div>
+          </div>
+        </section>
+
+        <section class="view" data-view="settings">
+          <div class="panel settings-panel">
+            <div class="panel-head">
+              <h3>AI 设置</h3>
+              <p>默认已配置 gmn provider，首次使用请填写 API Key。</p>
+            </div>
+
+            <form id="settings-form" class="settings-form" novalidate>
+              <label class="field">
+                <div class="field-head">
+                  <span>API Key</span>
+                </div>
+                <input
+                  id="setting-api-key"
+                  name="apiKey"
+                  required
+                  type="password"
+                  placeholder="请输入 OPENAI_API_KEY"
+                  autocomplete="off"
+                />
+              </label>
+
+              <div class="field-group">
+                <label class="field">
+                  <div class="field-head">
+                    <span>Mode</span>
+                  </div>
+                  <input id="setting-mode" name="mode" type="text" />
+                </label>
+                <label class="field">
+                  <div class="field-head">
+                    <span>Provider</span>
+                  </div>
+                  <input id="setting-provider" name="provider" type="text" />
+                </label>
+              </div>
+
+              <label class="field">
+                <div class="field-head">
+                  <span>Base URL</span>
+                </div>
+                <input id="setting-base-url" name="baseUrl" type="url" />
+              </label>
+
+              <div class="field-group">
+                <label class="field">
+                  <div class="field-head">
+                    <span>API Type</span>
+                  </div>
+                  <input id="setting-api-type" name="apiType" type="text" />
+                </label>
+                <label class="field">
+                  <div class="field-head">
+                    <span>Model ID</span>
+                  </div>
+                  <input id="setting-model-id" name="modelId" type="text" />
+                </label>
+              </div>
+
+              <div class="field-group">
+                <label class="field">
+                  <div class="field-head">
+                    <span>Model Name</span>
+                  </div>
+                  <input id="setting-model-name" name="modelName" type="text" />
+                </label>
+                <label class="field">
+                  <div class="field-head">
+                    <span>Max Output Tokens</span>
+                  </div>
+                  <input id="setting-max-output-tokens" name="maxOutputTokens" min="256" step="1" type="number" />
+                </label>
+              </div>
+
+              <div class="field-group">
+                <label class="field">
+                  <div class="field-head">
+                    <span>Context Window</span>
+                  </div>
+                  <input id="setting-context-window" name="contextWindow" min="1024" step="1" type="number" />
+                </label>
+                <label class="field checkbox-field">
+                  <span>Reasoning</span>
+                  <label class="checkbox-row">
+                    <input id="setting-reasoning" name="reasoning" type="checkbox" />
+                    <span>启用 reasoning 推理模式</span>
+                  </label>
+                </label>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn-primary" type="submit">保存设置</button>
+                <button class="btn-secondary" id="reset-settings-btn" type="button">恢复默认</button>
+              </div>
+            </form>
+
+            <p class="status status-info" id="settings-status">设置保存后会写入浏览器本地存储。</p>
+
+            <div class="config-preview">
+              <h4>当前配置预览（已隐藏 API Key）</h4>
+              <pre id="settings-preview"></pre>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
