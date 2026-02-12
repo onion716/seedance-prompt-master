@@ -272,7 +272,7 @@
           <div class="panel settings-panel">
             <div class="panel-head">
               <h3>AI 设置</h3>
-              <p>默认已配置 gmn provider，首次使用请填写 API Key。</p>
+              <p>仅需填写 API Key 与 Base URL，其他参数默认固定为系统配置。</p>
             </div>
 
             <form id="settings-form" class="settings-form" novalidate>
@@ -290,73 +290,12 @@
                 />
               </label>
 
-              <div class="field-group">
-                <label class="field">
-                  <div class="field-head">
-                    <span>Mode</span>
-                  </div>
-                  <input id="setting-mode" name="mode" type="text" />
-                </label>
-                <label class="field">
-                  <div class="field-head">
-                    <span>Provider</span>
-                  </div>
-                  <input id="setting-provider" name="provider" type="text" />
-                </label>
-              </div>
-
               <label class="field">
                 <div class="field-head">
                   <span>Base URL</span>
                 </div>
                 <input id="setting-base-url" name="baseUrl" type="url" />
               </label>
-
-              <div class="field-group">
-                <label class="field">
-                  <div class="field-head">
-                    <span>API Type</span>
-                  </div>
-                  <input id="setting-api-type" name="apiType" type="text" />
-                </label>
-                <label class="field">
-                  <div class="field-head">
-                    <span>Model ID</span>
-                  </div>
-                  <input id="setting-model-id" name="modelId" type="text" />
-                </label>
-              </div>
-
-              <div class="field-group">
-                <label class="field">
-                  <div class="field-head">
-                    <span>Model Name</span>
-                  </div>
-                  <input id="setting-model-name" name="modelName" type="text" />
-                </label>
-                <label class="field">
-                  <div class="field-head">
-                    <span>Max Output Tokens</span>
-                  </div>
-                  <input id="setting-max-output-tokens" name="maxOutputTokens" min="256" step="1" type="number" />
-                </label>
-              </div>
-
-              <div class="field-group">
-                <label class="field">
-                  <div class="field-head">
-                    <span>Context Window</span>
-                  </div>
-                  <input id="setting-context-window" name="contextWindow" min="1024" step="1" type="number" />
-                </label>
-                <label class="field checkbox-field">
-                  <span>Reasoning</span>
-                  <label class="checkbox-row">
-                    <input id="setting-reasoning" name="reasoning" type="checkbox" />
-                    <span>启用 reasoning 推理模式</span>
-                  </label>
-                </label>
-              </div>
 
               <div class="form-actions">
                 <button class="btn-primary" type="submit">保存设置</button>

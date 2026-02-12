@@ -51,7 +51,7 @@ const DEFAULT_SETTINGS = {
 
 const state = {
   skillContext: FALLBACK_SKILL_CONTEXT.trim(),
-  settings: normalizeSettings(readJson(STORAGE_KEYS.settings, DEFAULT_SETTINGS)),
+  settings: sanitizeStoredSettings(readJson(STORAGE_KEYS.settings, DEFAULT_SETTINGS)),
   records: normalizeRecords(readJson(STORAGE_KEYS.records, [])),
   activeView: "generator",
 };
@@ -82,15 +82,7 @@ const elements = {
   resetSettingsBtn: document.getElementById("reset-settings-btn"),
 
   settingApiKey: document.getElementById("setting-api-key"),
-  settingMode: document.getElementById("setting-mode"),
-  settingProvider: document.getElementById("setting-provider"),
   settingBaseUrl: document.getElementById("setting-base-url"),
-  settingApiType: document.getElementById("setting-api-type"),
-  settingModelId: document.getElementById("setting-model-id"),
-  settingModelName: document.getElementById("setting-model-name"),
-  settingMaxOutputTokens: document.getElementById("setting-max-output-tokens"),
-  settingContextWindow: document.getElementById("setting-context-window"),
-  settingReasoning: document.getElementById("setting-reasoning"),
 };
 
 init();
@@ -203,18 +195,13 @@ function bindSettingsEvents() {
     event.preventDefault();
 
     const formData = new FormData(elements.settingsForm);
+    const apiKey = String(formData.get("apiKey") || "").trim();
+    const baseUrl = String(formData.get("baseUrl") || "").trim();
+
     const next = normalizeSettings({
-      ...state.settings,
-      apiKey: String(formData.get("apiKey") || "").trim(),
-      mode: String(formData.get("mode") || "").trim(),
-      provider: String(formData.get("provider") || "").trim(),
-      baseUrl: String(formData.get("baseUrl") || "").trim(),
-      apiType: String(formData.get("apiType") || "").trim(),
-      modelId: String(formData.get("modelId") || "").trim(),
-      modelName: String(formData.get("modelName") || "").trim(),
-      maxOutputTokens: Number(formData.get("maxOutputTokens") || DEFAULT_SETTINGS.maxOutputTokens),
-      contextWindow: Number(formData.get("contextWindow") || DEFAULT_SETTINGS.contextWindow),
-      reasoning: Boolean(formData.get("reasoning")),
+      ...DEFAULT_SETTINGS,
+      apiKey,
+      baseUrl: baseUrl || DEFAULT_SETTINGS.baseUrl,
     });
 
     if (!next.apiKey) {
@@ -745,15 +732,7 @@ function fillFormByRecord(record) {
 
 function hydrateSettingsForm() {
   elements.settingApiKey.value = state.settings.apiKey;
-  elements.settingMode.value = state.settings.mode;
-  elements.settingProvider.value = state.settings.provider;
   elements.settingBaseUrl.value = state.settings.baseUrl;
-  elements.settingApiType.value = state.settings.apiType;
-  elements.settingModelId.value = state.settings.modelId;
-  elements.settingModelName.value = state.settings.modelName;
-  elements.settingMaxOutputTokens.value = String(state.settings.maxOutputTokens);
-  elements.settingContextWindow.value = String(state.settings.contextWindow);
-  elements.settingReasoning.checked = state.settings.reasoning;
 }
 
 function renderSettingsPreview() {
@@ -818,6 +797,14 @@ function readJson(key, fallback) {
 
 function writeJson(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function sanitizeStoredSettings(raw) {
+  return normalizeSettings({
+    ...DEFAULT_SETTINGS,
+    apiKey: String(raw?.apiKey || "").trim(),
+    baseUrl: String(raw?.baseUrl || DEFAULT_SETTINGS.baseUrl).trim(),
+  });
 }
 
 function normalizeSettings(raw) {
