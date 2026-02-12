@@ -27,11 +27,11 @@ const SKILL_FILE_PATHS = [
 
 const FALLBACK_SKILL_CONTEXT = `
 你是即梦 Seedance 2.0 视频分镜提示词专家，请遵循以下规则：
-1) 先输出整体说明，再输出分段提示词、参考说明、优化建议。
+1) 只输出分镜提示词正文，不输出任何标题、说明、建议或附加解释。
 2) 分段时长规范：4-6秒=1-2段；7-10秒=2-3段；11-15秒=3-5段。
 3) 每段结构：[运镜方式] + [主体] + [动作] + [场景] + [氛围/音效]。
 4) 主体、动作、场景必须具体，不可模糊。
-5) 若用户给了参考素材，必须用 @图片X / @视频X / @音频X 标注用途。
+5) 输出格式固定为：X-Y秒画面：运镜 + 主体 + 动作 + 场景 + 氛围/音效
 `;
 
 const DEFAULT_SETTINGS = {
@@ -598,25 +598,18 @@ function buildSystemPrompt() {
   const contextSnippet = state.skillContext.slice(0, 16000);
   return [
     "你是提示词大师中的即梦 Seedance 2.0 视频分镜提示词专家。",
-    "目标：输出可直接粘贴到即梦使用的分镜提示词。",
+    "目标：输出可直接粘贴到即梦的分镜提示词正文。",
     "硬性规则：",
     "1) 严格遵循用户指定时长段落，按时间顺序输出。",
     "2) 每段必须使用结构：运镜 + 主体 + 动作 + 场景 + 氛围/音效。",
     "3) 主体、动作、场景要具体，禁止模糊词（如“一个人”“某个地方”）。",
-    "4) 有素材时必须写明 @图片X / @视频X / @音频X 的用途；无素材写“无”。",
+    "4) 仅输出分镜段落正文，禁止输出任何标题、说明、素材引用、优化建议、总结。",
     "5) 不要输出 Markdown 标题符号（#）和加粗符号（**）。",
-    "6) 只按模板输出，不要额外寒暄和解释。",
+    "6) 严禁输出与分镜段落无关内容。",
     "",
-    "输出模板（标题文字必须一致）：",
-    "【即梦分镜提示词】",
+    "输出模板（只允许这种行结构）：",
     "X-Y秒画面：运镜 + 主体 + 动作 + 场景 + 氛围/音效",
     "X-Y秒画面：运镜 + 主体 + 动作 + 场景 + 氛围/音效",
-    "【素材引用说明】",
-    "若有素材：逐条写用途；若无素材：写“无”",
-    "【优化建议】",
-    "1. ...",
-    "2. ...",
-    "3. ...",
     "",
     "以下为必须遵循的技能规则摘录：",
     contextSnippet,
@@ -645,6 +638,7 @@ function buildUserPrompt(payload) {
     "额外要求：",
     `- 必须输出 ${slots.length} 段分镜，不能多也不能少。`,
     "- 每段都写成可直接用于生成的视频画面描述，不要写占位符。",
+    "- 除分镜段落正文外，不要输出任何其他字段。",
     "- 语言使用简体中文。",
   ].join("\n");
 }
@@ -662,7 +656,7 @@ function ensureCompleteOutput(text, payload) {
   const slots = getDurationSlots(payload.videoDuration);
   const fallbackSegments = buildSegments(payload.videoDuration, payload);
 
-  const segmentMatches = Array.from(text.matchAll(/(?:^|\n)\s*(\d+\-\d+秒画面：[^\n]+)/g))
+  const segmentMatches = Array.from(text.matchAll(/(?:^|\n)\s*(?:[-*]\s*)?(\d+\-\d+秒画面：[^\n]+)/g))
     .map((match) => match[1].trim())
     .filter(Boolean);
   const segmentLines = [];
@@ -671,71 +665,7 @@ function ensureCompleteOutput(text, payload) {
     segmentLines.push(segmentMatches[index] || fallbackSegments[index]);
   }
 
-  let referenceSection = extractSection(text, "【素材引用说明】", "【优化建议】").trim();
-  if (!referenceSection) {
-    referenceSection = [
-      payload.referenceImages ? `@图片：${payload.referenceImages}` : "",
-      payload.referenceVideos ? `@视频：${payload.referenceVideos}` : "",
-      payload.referenceAudios ? `@音频：${payload.referenceAudios}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  if (!referenceSection) {
-    referenceSection = "无";
-  }
-
-  const suggestionSection = extractSection(text, "【优化建议】", "");
-  const suggestionMatches = Array.from(suggestionSection.matchAll(/(?:^|\n)\s*\d+[\.、]\s*([^\n]+)/g))
-    .map((match) => match[1].trim())
-    .filter((item) => item.length >= 4);
-  const defaultSuggestions = buildDefaultSuggestions(payload);
-
-  const suggestions = [];
-  for (const item of suggestionMatches) {
-    if (suggestions.length >= 3) break;
-    suggestions.push(item);
-  }
-  for (const item of defaultSuggestions) {
-    if (suggestions.length >= 3) break;
-    suggestions.push(item);
-  }
-
-  return [
-    "【即梦分镜提示词】",
-    ...segmentLines,
-    "",
-    "【素材引用说明】",
-    referenceSection,
-    "",
-    "【优化建议】",
-    `1. ${suggestions[0]}`,
-    `2. ${suggestions[1]}`,
-    `3. ${suggestions[2]}`,
-  ].join("\n");
-}
-
-function extractSection(text, startMarker, endMarker) {
-  const source = String(text || "");
-  const startIndex = source.indexOf(startMarker);
-  if (startIndex < 0) return "";
-
-  const from = startIndex + startMarker.length;
-  if (!endMarker) return source.slice(from);
-
-  const endIndex = source.indexOf(endMarker, from);
-  if (endIndex < 0) return source.slice(from);
-  return source.slice(from, endIndex);
-}
-
-function buildDefaultSuggestions(payload) {
-  const style = payload.stylePreference || "目标风格";
-  return [
-    `可再补充景别与机位（全景/中景/特写 + 俯拍/仰拍），提升${style}画面稳定性。`,
-    "若需保持角色一致性，建议提供 @图片1 作为主体锚定并在每段重复引用。",
-    "可加入节奏词（慢推/卡点/急停）和光效词（逆光/侧光/霓虹）增强冲击力。",
-  ];
+  return segmentLines.join("\n\n");
 }
 
 function extractApiError(data) {
@@ -799,28 +729,8 @@ function collectText(value, bucket) {
 
 function buildFallbackPrompt(payload, reason) {
   const segments = buildSegments(payload.videoDuration, payload);
-  const references = [
-    payload.referenceImages ? `@图片：${payload.referenceImages}` : "",
-    payload.referenceVideos ? `@视频：${payload.referenceVideos}` : "",
-    payload.referenceAudios ? `@音频：${payload.referenceAudios}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  return [
-    "【即梦分镜提示词】",
-    ...segments,
-    "",
-    "【素材引用说明】",
-    references || "无",
-    "",
-    "【优化建议】",
-    "1. 若有真实素材，请将关键角色和场景用 @图片X 明确锚定，提升一致性。",
-    "2. 可补充镜头参数（景别、机位、节奏）让运镜更稳定。",
-    "3. 关键动作建议拆分成连续步骤，减少生成时的动作跳变。",
-    "",
-    `（提示：AI 接口调用失败，已输出本地草稿。错误信息：${reason}）`,
-  ].join("\n");
+  void reason;
+  return segments.join("\n\n");
 }
 
 function buildSegments(duration, payload) {
