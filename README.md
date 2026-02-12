@@ -1,44 +1,45 @@
 # 提示词大师（Prompt Master）
 
-纯前端（HTML + CSS + JavaScript）提示词生成工具，面向即梦 Seedance 2.0 分镜提示词创作。
+前端 + Vercel 轻量代理提示词生成工具，面向即梦 Seedance 2.0 分镜提示词创作。
 
 ## 页面结构
 
 - **提示词生成**：根据 `jimeng-video` skills 规则生成提示词
 - **生成记录**：本地记录每次输入参数与生成结果
-- **AI 设置**：默认 GLM Coding 配置，首次需填写 API Key
+- **AI 设置**：推荐填 `/api/generate` 走 Vercel 代理（前端无需暴露 API Key）
 
-## 本地运行
+## 本地运行（前端）
 
 ```bash
 python3 -m http.server 8080
 ```
 
-然后访问：
+访问 `http://localhost:8080`
 
-```text
-http://localhost:8080
-```
+> 说明：该方式仅预览前端，`/api/generate` 需要部署到 Vercel 后才可用。
 
-## 部署到 GitHub Pages
+## 部署到 Vercel（推荐）
 
 1. 将仓库推送到 GitHub（`main` 分支）。
-2. 打开仓库 `Settings` -> `Pages`。
-3. `Build and deployment` 选择 `Deploy from a branch`。
-4. Branch 选择 `main`，Folder 选择 `/ (root)`，保存。
-5. 等待 1-3 分钟后，访问生成的网址（格式通常为 `https://<用户名>.github.io/<仓库名>/`）。
+2. 在 Vercel 导入此仓库（Framework 选择 `Other`）。
+3. 在 Vercel 项目 `Settings -> Environment Variables` 配置：
+   - `GLM_API_KEY`：你的 GLM Coding Plan key（必填）
+   - `GLM_BASE_URL`：`https://open.bigmodel.cn/api/coding/paas/v4`（可选）
+   - `GLM_MODEL`：`glm-4.7`（可选）
+4. 重新部署后，前端 `AI 设置` 中 Base URL 填 `/api/generate`（默认即是）。
+5. API Key 输入框可留空（仅直连模式才需要填写）。
 
-## 默认 AI 配置
+## 默认 AI 配置（Vercel 代理模式）
 
 ```json
 {
-  "provider": "glm",
-  "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
-  "apiType": "openai-chat-completions",
+  "provider": "vercel-proxy",
+  "baseUrl": "/api/generate",
+  "apiType": "proxy-or-openai-chat-completions",
   "modelId": "glm-4.7",
   "maxOutputTokens": 2048,
-  "apiKey": "GLM_API_KEY"
+  "apiKey": ""
 }
 ```
 
-> 注意：如果出现 `Failed to fetch`，通常是 CORS 限制。请改用支持当前站点跨域的 Base URL，或使用你自己的后端代理。
+> 注意：如果你改成“直连模型”模式，才需要在前端填写 API Key，并自行处理 CORS。

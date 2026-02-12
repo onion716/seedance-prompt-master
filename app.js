@@ -14,7 +14,7 @@ const VIEW_META = {
   },
   settings: {
     title: "AI 设置",
-    subtitle: "默认 GLM Coding 配置，仅需填写 API Key 与 Base URL",
+    subtitle: "推荐 Vercel 代理模式（/api/generate），仅需配置 Base URL",
   },
 };
 
@@ -35,9 +35,9 @@ const FALLBACK_SKILL_CONTEXT = `
 
 const DEFAULT_SETTINGS = {
   mode: "merge",
-  provider: "glm",
-  baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4",
-  apiType: "openai-chat-completions",
+  provider: "vercel-proxy",
+  baseUrl: "/api/generate",
+  apiType: "proxy-or-openai-chat-completions",
   modelId: "glm-4.7",
   modelName: "GLM-4.7",
   reasoning: false,
@@ -195,15 +195,17 @@ function bindSettingsEvents() {
     const formData = new FormData(elements.settingsForm);
     const apiKey = String(formData.get("apiKey") || "").trim();
     const baseUrl = String(formData.get("baseUrl") || "").trim();
+    const resolvedBaseUrl = baseUrl || DEFAULT_SETTINGS.baseUrl;
+    const proxyMode = isProxyEndpoint(resolvedBaseUrl);
 
     const next = normalizeSettings({
       ...DEFAULT_SETTINGS,
       apiKey,
-      baseUrl: baseUrl || DEFAULT_SETTINGS.baseUrl,
+      baseUrl: resolvedBaseUrl,
     });
 
-    if (!next.apiKey) {
-      setSettingsStatus("请填写 API Key 后再保存。", "warning");
+    if (!next.apiKey && !proxyMode) {
+      setSettingsStatus("直连模型模式需要填写 API Key。", "warning");
       return;
     }
 
@@ -314,6 +316,13 @@ function setSkillStatus(message, level) {
 }
 
 function refreshApiHint() {
+  if (isProxyEndpoint(state.settings.baseUrl)) {
+    if (elements.generationStatus.textContent.includes("API Key")) {
+      setGenerationStatus("当前使用 Vercel 代理模式，可直接生成。", "info");
+    }
+    return;
+  }
+
   if (!state.settings.apiKey) {
     setGenerationStatus("尚未配置 API Key，请先到“AI 设置”完成配置。", "warning");
     return;
@@ -362,10 +371,10 @@ async function handleGenerate(event) {
     return;
   }
 
-  if (!state.settings.apiKey) {
+  if (!state.settings.apiKey && !isProxyEndpoint(state.settings.baseUrl)) {
     setGenerationStatus("未检测到 API Key，请先在 AI 设置中完成配置。", "warning");
     setActiveView("settings");
-    setSettingsStatus("请先填写 API Key 并保存。", "warning");
+    setSettingsStatus("请先填写 API Key 并保存（直连模式）。", "warning");
     return;
   }
 
@@ -432,6 +441,48 @@ function validatePayload(payload) {
 }
 
 async function requestAI(payload) {
+  if (isProxyEndpoint(state.settings.baseUrl)) {
+    return requestAIByProxy(payload);
+  }
+
+  return requestAIDirect(payload);
+}
+
+async function requestAIByProxy(payload) {
+  const endpoint = resolveProxyEndpoint(state.settings.baseUrl);
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const rawText = await response.text();
+  let data = null;
+
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch (error) {
+    if (!response.ok) {
+      throw new Error(`请求失败（${response.status}）且返回非 JSON 数据。`);
+    }
+    throw new Error("AI 返回非 JSON 格式，无法解析。");
+  }
+
+  if (!response.ok) {
+    throw new Error(`请求失败（${response.status}）：${extractApiError(data)}`);
+  }
+
+  const output = extractProxyOutput(data);
+  if (!output) {
+    throw new Error("代理返回为空。");
+  }
+
+  return output;
+}
+
+async function requestAIDirect(payload) {
   const endpoint = resolveChatCompletionsEndpoint(state.settings.baseUrl);
   const systemPrompt = buildSystemPrompt();
   const userPrompt = buildUserPrompt(payload);
@@ -486,6 +537,12 @@ async function requestAI(payload) {
   return output;
 }
 
+function resolveProxyEndpoint(baseUrl) {
+  const clean = String(baseUrl || "").trim();
+  if (!clean) return "/api/generate";
+  return clean;
+}
+
 function resolveChatCompletionsEndpoint(baseUrl) {
   const clean = String(baseUrl || "").trim().replace(/\/+$/, "");
   if (!clean) return "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions";
@@ -507,7 +564,7 @@ function explainRequestError(error, endpoint) {
   if (rawMessage.includes("403")) {
     return {
       rawMessage,
-      userMessage: `访问被拒绝（403）。请确认账号权限、区域端点（.com/.io）以及 ${endpointOrigin} 的跨域策略。`,
+      userMessage: `访问被拒绝（403）。若使用 Vercel 代理，请检查 Vercel 环境变量与账号权限；若直连，请确认 ${endpointOrigin} 的跨域策略。`,
     };
   }
 
@@ -522,6 +579,13 @@ function explainRequestError(error, endpoint) {
     rawMessage,
     userMessage: `AI 请求失败：${rawMessage}`,
   };
+}
+
+function extractProxyOutput(data) {
+  if (!data || typeof data !== "object") return "";
+  if (typeof data.output === "string") return data.output.trim();
+  if (typeof data.result === "string") return data.result.trim();
+  return "";
 }
 
 function safeOrigin(url) {
@@ -839,18 +903,32 @@ function sanitizeStoredSettings(raw) {
   const storedBaseUrl = String(raw?.baseUrl || "").trim();
   const storedModelId = String(raw?.modelId || "").trim();
   const storedModelName = String(raw?.modelName || "").trim();
+  const legacyDirectBaseUrls = [
+    "https://open.bigmodel.cn/api/paas/v4",
+    "https://open.bigmodel.cn/api/coding/paas/v4",
+  ];
 
   return normalizeSettings({
     ...DEFAULT_SETTINGS,
     ...raw,
     apiKey: String(raw?.apiKey || "").trim(),
-    baseUrl:
-      storedBaseUrl === "https://open.bigmodel.cn/api/paas/v4"
-        ? "https://open.bigmodel.cn/api/coding/paas/v4"
-        : storedBaseUrl || DEFAULT_SETTINGS.baseUrl,
+    baseUrl: legacyDirectBaseUrls.includes(storedBaseUrl) ? "/api/generate" : storedBaseUrl || DEFAULT_SETTINGS.baseUrl,
     modelId: storedModelId === "glm-4.7-flash" ? "glm-4.7" : storedModelId || DEFAULT_SETTINGS.modelId,
     modelName: storedModelName === "GLM-4.7-Flash" ? "GLM-4.7" : storedModelName || DEFAULT_SETTINGS.modelName,
   });
+}
+
+function isProxyEndpoint(baseUrl) {
+  const clean = String(baseUrl || "").trim();
+  if (!clean) return true;
+  if (clean.includes("/api/generate")) return true;
+  if (clean.startsWith("/api/")) return true;
+  try {
+    const url = new URL(clean, window.location.origin);
+    return url.pathname.startsWith("/api/");
+  } catch (error) {
+    return false;
+  }
 }
 
 function normalizeSettings(raw) {

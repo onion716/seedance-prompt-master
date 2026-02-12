@@ -272,7 +272,7 @@
           <div class="panel settings-panel">
             <div class="panel-head">
               <h3>AI 设置</h3>
-              <p>默认使用 GLM Coding 接口；仅需填写 API Key 与 Base URL。</p>
+              <p>推荐 Vercel 代理模式：Base URL 填 <code>/api/generate</code>，API Key 可留空。</p>
             </div>
 
             <form id="settings-form" class="settings-form" novalidate>
@@ -283,9 +283,8 @@
                 <input
                   id="setting-api-key"
                   name="apiKey"
-                  required
                   type="password"
-                  placeholder="请输入 GLM API Key（例如：id.secret）"
+                  placeholder="直连模式才需要（例如：GLM 的 id.secret）"
                   autocomplete="off"
                 />
               </label>
@@ -297,8 +296,8 @@
                 <input
                   id="setting-base-url"
                   name="baseUrl"
-                  type="url"
-                  placeholder="例如：https://open.bigmodel.cn/api/coding/paas/v4"
+                  type="text"
+                  placeholder="推荐：/api/generate（Vercel 代理）"
                 />
               </label>
 
