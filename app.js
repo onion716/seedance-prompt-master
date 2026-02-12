@@ -46,7 +46,7 @@ const DEFAULT_SETTINGS = {
   contextWindow: 200000,
   maxTokens: 8192,
   userAgent: "CodexCLI/2026.1",
-  maxOutputTokens: 2048,
+  maxOutputTokens: 4096,
   apiKey: "",
 };
 
@@ -380,7 +380,7 @@ async function handleGenerate(event) {
     : resolveChatCompletionsEndpoint(state.settings.baseUrl);
 
   try {
-    const output = normalizeGeneratedOutput(await requestAI(payload));
+    const output = ensureCompleteOutput(normalizeGeneratedOutput(await requestAI(payload)), payload);
     setOutput(output);
     saveRecord(payload, output, "AI");
     renderRecords();
@@ -656,6 +656,86 @@ function normalizeGeneratedOutput(text) {
     .replace(/\*\*(.*?)\*\*/g, "$1")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function ensureCompleteOutput(text, payload) {
+  const slots = getDurationSlots(payload.videoDuration);
+  const fallbackSegments = buildSegments(payload.videoDuration, payload);
+
+  const segmentMatches = Array.from(text.matchAll(/(?:^|\n)\s*(\d+\-\d+秒画面：[^\n]+)/g))
+    .map((match) => match[1].trim())
+    .filter(Boolean);
+  const segmentLines = [];
+
+  for (let index = 0; index < slots.length; index += 1) {
+    segmentLines.push(segmentMatches[index] || fallbackSegments[index]);
+  }
+
+  let referenceSection = extractSection(text, "【素材引用说明】", "【优化建议】").trim();
+  if (!referenceSection) {
+    referenceSection = [
+      payload.referenceImages ? `@图片：${payload.referenceImages}` : "",
+      payload.referenceVideos ? `@视频：${payload.referenceVideos}` : "",
+      payload.referenceAudios ? `@音频：${payload.referenceAudios}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  if (!referenceSection) {
+    referenceSection = "无";
+  }
+
+  const suggestionSection = extractSection(text, "【优化建议】", "");
+  const suggestionMatches = Array.from(suggestionSection.matchAll(/(?:^|\n)\s*\d+[\.、]\s*([^\n]+)/g))
+    .map((match) => match[1].trim())
+    .filter((item) => item.length >= 4);
+  const defaultSuggestions = buildDefaultSuggestions(payload);
+
+  const suggestions = [];
+  for (const item of suggestionMatches) {
+    if (suggestions.length >= 3) break;
+    suggestions.push(item);
+  }
+  for (const item of defaultSuggestions) {
+    if (suggestions.length >= 3) break;
+    suggestions.push(item);
+  }
+
+  return [
+    "【即梦分镜提示词】",
+    ...segmentLines,
+    "",
+    "【素材引用说明】",
+    referenceSection,
+    "",
+    "【优化建议】",
+    `1. ${suggestions[0]}`,
+    `2. ${suggestions[1]}`,
+    `3. ${suggestions[2]}`,
+  ].join("\n");
+}
+
+function extractSection(text, startMarker, endMarker) {
+  const source = String(text || "");
+  const startIndex = source.indexOf(startMarker);
+  if (startIndex < 0) return "";
+
+  const from = startIndex + startMarker.length;
+  if (!endMarker) return source.slice(from);
+
+  const endIndex = source.indexOf(endMarker, from);
+  if (endIndex < 0) return source.slice(from);
+  return source.slice(from, endIndex);
+}
+
+function buildDefaultSuggestions(payload) {
+  const style = payload.stylePreference || "目标风格";
+  return [
+    `可再补充景别与机位（全景/中景/特写 + 俯拍/仰拍），提升${style}画面稳定性。`,
+    "若需保持角色一致性，建议提供 @图片1 作为主体锚定并在每段重复引用。",
+    "可加入节奏词（慢推/卡点/急停）和光效词（逆光/侧光/霓虹）增强冲击力。",
+  ];
 }
 
 function extractApiError(data) {
