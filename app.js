@@ -813,10 +813,20 @@ function writeJson(key, value) {
 }
 
 function sanitizeStoredSettings(raw) {
+  const storedBaseUrl = String(raw?.baseUrl || "").trim();
+  const storedModelId = String(raw?.modelId || "").trim();
+  const storedModelName = String(raw?.modelName || "").trim();
+
   return normalizeSettings({
     ...DEFAULT_SETTINGS,
+    ...raw,
     apiKey: String(raw?.apiKey || "").trim(),
-    baseUrl: String(raw?.baseUrl || DEFAULT_SETTINGS.baseUrl).trim(),
+    baseUrl:
+      storedBaseUrl === "https://open.bigmodel.cn/api/paas/v4"
+        ? "https://open.bigmodel.cn/api/coding/paas/v4"
+        : storedBaseUrl || DEFAULT_SETTINGS.baseUrl,
+    modelId: storedModelId === "glm-4.7-flash" ? "glm-4.7" : storedModelId || DEFAULT_SETTINGS.modelId,
+    modelName: storedModelName === "GLM-4.7-Flash" ? "GLM-4.7" : storedModelName || DEFAULT_SETTINGS.modelName,
   });
 }
 
