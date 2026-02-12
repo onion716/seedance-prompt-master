@@ -33,9 +33,9 @@ http://localhost:8080
 ```json
 {
   "provider": "glm",
-  "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+  "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
   "apiType": "openai-chat-completions",
-  "modelId": "glm-4.7-flash",
+  "modelId": "glm-4.7",
   "maxOutputTokens": 2048,
   "apiKey": "GLM_API_KEY"
 }

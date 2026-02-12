@@ -36,10 +36,10 @@ const FALLBACK_SKILL_CONTEXT = `
 const DEFAULT_SETTINGS = {
   mode: "merge",
   provider: "glm",
-  baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+  baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4",
   apiType: "openai-chat-completions",
-  modelId: "glm-4.7-flash",
-  modelName: "GLM-4.7-Flash",
+  modelId: "glm-4.7",
+  modelName: "GLM-4.7",
   reasoning: false,
   input: ["text", "image"],
   contextWindow: 200000,
@@ -488,7 +488,7 @@ async function requestAI(payload) {
 
 function resolveChatCompletionsEndpoint(baseUrl) {
   const clean = String(baseUrl || "").trim().replace(/\/+$/, "");
-  if (!clean) return "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+  if (!clean) return "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions";
   if (clean.endsWith("/chat/completions")) return clean;
   return `${clean}/chat/completions`;
 }
