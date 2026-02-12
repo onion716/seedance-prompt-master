@@ -257,11 +257,7 @@ async function loadJimengSkillContext() {
   try {
     const results = await Promise.all(
       SKILL_FILE_PATHS.map(async (path) => {
-        const response = await fetch(path, { cache: "no-cache" });
-        if (!response.ok) {
-          throw new Error(`${path} 读取失败（${response.status}）`);
-        }
-        const text = await response.text();
+        const text = await fetchTextWithTimeout(path, 8000);
         return { path, text: text.trim() };
       })
     );
@@ -281,6 +277,31 @@ async function loadJimengSkillContext() {
     console.error(error);
     state.skillContext = FALLBACK_SKILL_CONTEXT.trim();
     setSkillStatus("技能文件读取失败，已切换为内置规则。", "error");
+  }
+}
+
+async function fetchTextWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      cache: "no-cache",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`${url} 读取失败（${response.status}）`);
+    }
+
+    return await response.text();
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`${url} 读取超时（>${timeoutMs}ms）`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
   }
 }
 
