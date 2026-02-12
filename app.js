@@ -14,7 +14,7 @@ const VIEW_META = {
   },
   settings: {
     title: "AI 设置",
-    subtitle: "默认 MiniMax Coding 配置，仅需填写 API Key 与 Base URL",
+    subtitle: "默认 GLM Coding 配置，仅需填写 API Key 与 Base URL",
   },
 };
 
@@ -35,11 +35,11 @@ const FALLBACK_SKILL_CONTEXT = `
 
 const DEFAULT_SETTINGS = {
   mode: "merge",
-  provider: "minimax",
-  baseUrl: "https://api.minimaxi.com/v1",
+  provider: "glm",
+  baseUrl: "https://open.bigmodel.cn/api/paas/v4",
   apiType: "openai-chat-completions",
-  modelId: "MiniMax-M2.1",
-  modelName: "MiniMax M2.1",
+  modelId: "glm-4.7-flash",
+  modelName: "GLM-4.7-Flash",
   reasoning: false,
   input: ["text", "image"],
   contextWindow: 200000,
@@ -488,10 +488,9 @@ async function requestAI(payload) {
 
 function resolveChatCompletionsEndpoint(baseUrl) {
   const clean = String(baseUrl || "").trim().replace(/\/+$/, "");
-  if (!clean) return "https://api.minimaxi.com/v1/chat/completions";
+  if (!clean) return "https://open.bigmodel.cn/api/paas/v4/chat/completions";
   if (clean.endsWith("/chat/completions")) return clean;
-  if (clean.endsWith("/v1")) return `${clean}/chat/completions`;
-  return `${clean}/v1/chat/completions`;
+  return `${clean}/chat/completions`;
 }
 
 function explainRequestError(error, endpoint) {
@@ -501,7 +500,7 @@ function explainRequestError(error, endpoint) {
   if (rawMessage.includes("401") || rawMessage.includes("Unauthorized")) {
     return {
       rawMessage,
-      userMessage: "认证失败（401）。请检查 MiniMax Coding Plan API Key 是否正确且仍有效。",
+      userMessage: "认证失败（401）。请检查 GLM API Key 是否正确（通常为 id.secret）且仍有效。",
     };
   }
 

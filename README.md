@@ -6,7 +6,7 @@
 
 - **提示词生成**：根据 `jimeng-video` skills 规则生成提示词
 - **生成记录**：本地记录每次输入参数与生成结果
-- **AI 设置**：默认 MiniMax Coding 配置，首次需填写 API Key
+- **AI 设置**：默认 GLM Coding 配置，首次需填写 API Key
 
 ## 本地运行
 
@@ -32,12 +32,12 @@ http://localhost:8080
 
 ```json
 {
-  "provider": "minimax",
-  "baseUrl": "https://api.minimaxi.com/v1",
+  "provider": "glm",
+  "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
   "apiType": "openai-chat-completions",
-  "modelId": "MiniMax-M2.1",
+  "modelId": "glm-4.7-flash",
   "maxOutputTokens": 2048,
-  "apiKey": "MINIMAX_API_KEY"
+  "apiKey": "GLM_API_KEY"
 }
 ```
 

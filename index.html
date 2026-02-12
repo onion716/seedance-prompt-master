@@ -272,7 +272,7 @@
           <div class="panel settings-panel">
             <div class="panel-head">
               <h3>AI 设置</h3>
-              <p>默认使用 MiniMax Coding 接口；仅需填写 API Key 与 Base URL。</p>
+              <p>默认使用 GLM Coding 接口；仅需填写 API Key 与 Base URL。</p>
             </div>
 
             <form id="settings-form" class="settings-form" novalidate>
@@ -285,7 +285,7 @@
                   name="apiKey"
                   required
                   type="password"
-                  placeholder="请输入 OPENAI_API_KEY"
+                  placeholder="请输入 GLM API Key（例如：id.secret）"
                   autocomplete="off"
                 />
               </label>
@@ -298,7 +298,7 @@
                   id="setting-base-url"
                   name="baseUrl"
                   type="url"
-                  placeholder="例如：https://api.minimaxi.com/v1 或 https://api.minimax.io/v1"
+                  placeholder="例如：https://open.bigmodel.cn/api/paas/v4"
                 />
               </label>
 
