@@ -35,7 +35,7 @@ http://localhost:8080
   "provider": "minimax",
   "baseUrl": "https://api.minimaxi.com/v1",
   "apiType": "openai-chat-completions",
-  "modelId": "MiniMax-Text-01",
+  "modelId": "MiniMax-M2.1",
   "maxOutputTokens": 2048,
   "apiKey": "MINIMAX_API_KEY"
 }
